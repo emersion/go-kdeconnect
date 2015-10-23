@@ -15,6 +15,13 @@ const udpPort = 1714
 const tcpPort = 1715
 const protocolVersion = 5
 
+func setDeviceIdentity(device *network.Device, identity *netpkg.Identity) {
+	device.Id = identity.DeviceId
+	device.Name = identity.DeviceName
+	device.Type = identity.DeviceType
+	device.ProtocolVersion = identity.ProtocolVersion
+}
+
 type Engine struct {
 	udpServer *network.UdpServer
 	tcpServer *network.TcpServer
@@ -79,11 +86,7 @@ func (e *Engine) handleDevice(device *network.Device) {
 
 			device.PublicKey = rpub
 		} else if pkg.Type == netpkg.IdentityType {
-			identity := pkg.Body.(*netpkg.Identity)
-			device.Id = identity.DeviceId
-			device.Name = identity.DeviceName
-			device.Type = identity.DeviceType
-			device.ProtocolVersion = identity.ProtocolVersion
+			setDeviceIdentity(device, pkg.Body.(*netpkg.Identity))
 		} else {
 			err := e.handler.Handle(device, pkg)
 			if err != nil {
@@ -135,6 +138,8 @@ func (e *Engine) Listen() {
 					log.Println("Could open a TCP connection:", err)
 					continue
 				}
+
+				setDeviceIdentity(device, identity)
 
 				go e.handleDevice(device)
 			} else {
