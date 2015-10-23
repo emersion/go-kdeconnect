@@ -7,11 +7,15 @@ import (
 	"crypto/rsa"
 )
 
+type Type string
+
 const (
-	IdentityType = "kdeconnect.identity"
+	IdentityType Type = "kdeconnect.identity"
 	PairType = "kdeconnect.pair"
 	EncryptedType = "kdeconnect.encrypted"
 	PingType = "kdeconnect.ping"
+
+	// TODO: move all of these to plugins
 	TelephonyType = "kdeconnect.telephony"
 	BatteryType = "kdeconnect.battery"
 	SftpType = "kdeconnect.sftp"
@@ -27,7 +31,7 @@ const (
 
 type Package struct {
 	Id int64 `json:"id"`
-	Type string `json:"type"`
+	Type Type `json:"type"`
 	RawBody json.RawMessage `json:"body"`
 	Body interface{} `json:"-"`
 }

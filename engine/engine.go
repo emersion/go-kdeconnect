@@ -7,7 +7,8 @@ import (
 	"crypto/rsa"
 	"github.com/emersion/go-kdeconnect/crypto"
 	"github.com/emersion/go-kdeconnect/netpkg"
-	"github.com/emersion/go-kdeconnect/server"
+	"github.com/emersion/go-kdeconnect/network"
+	"github.com/emersion/go-kdeconnect/plugin"
 )
 
 const udpPort = 1714
@@ -15,9 +16,10 @@ const tcpPort = 1715
 const protocolVersion = 5
 
 type Engine struct {
-	udpServer *server.UdpServer
-	tcpServer *server.TcpServer
+	udpServer *network.UdpServer
+	tcpServer *network.TcpServer
 	privateKey *rsa.PrivateKey
+	handler *plugin.Handler
 }
 
 func (e *Engine) sendIdentity(conn net.Conn) error {
@@ -35,7 +37,7 @@ func (e *Engine) sendIdentity(conn net.Conn) error {
 	return err
 }
 
-func (e *Engine) connect(addr *net.TCPAddr) (*server.TcpClient, error) {
+func (e *Engine) connect(addr *net.TCPAddr) (*network.TcpClient, error) {
 	conn, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
 		return nil, err
@@ -43,19 +45,16 @@ func (e *Engine) connect(addr *net.TCPAddr) (*server.TcpClient, error) {
 
 	log.Println("New outgoing TCP connection")
 
-	return server.NewTcpClient(conn), nil
+	return network.NewTcpClient(conn), nil
 }
 
-func (e *Engine) handleConnection(client *server.TcpClient) {
+func (e *Engine) handleConnection(client *network.TcpClient) {
 	go client.Listen()
 	go e.sendIdentity(client.Conn)
 
 	for {
 		pkg := <-client.Incoming
-
 		if pkg == nil {
-			log.Println("Received null package")
-			//client.Close()
 			continue
 		}
 
@@ -88,8 +87,12 @@ func (e *Engine) handleConnection(client *server.TcpClient) {
 				},
 			}
 			client.Conn.Write(packet.Serialize())
+		// TODO: ping
 		default:
-			log.Println("Unknown package type:", pkg.Type, string(pkg.RawBody))
+			err := e.handler.Handle(pkg)
+			if err != nil {
+				log.Println("Error handling package:", err, pkg.Type, string(pkg.RawBody))
+			}
 		}
 	}
 
@@ -147,9 +150,10 @@ func (e *Engine) Listen() {
 	}
 }
 
-func New() *Engine {
+func New(handler *plugin.Handler) *Engine {
 	return &Engine{
-		udpServer: server.NewUdpServer(":"+strconv.Itoa(udpPort)),
-		tcpServer: server.NewTcpServer(":"+strconv.Itoa(tcpPort)),
+		udpServer: network.NewUdpServer(":"+strconv.Itoa(udpPort)),
+		tcpServer: network.NewTcpServer(":"+strconv.Itoa(tcpPort)),
+		handler: handler,
 	}
 }
