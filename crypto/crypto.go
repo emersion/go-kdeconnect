@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/rand"
 	"crypto/x509"
+	"errors"
 )
 
 func GenerateKey() (*rsa.PrivateKey, error) {
@@ -27,6 +28,9 @@ func MarshalPublicKey(pubkey *rsa.PublicKey) ([]byte, error) {
 
 func UnmarshalPublicKey(data []byte) (*rsa.PublicKey, error) {
 	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, errors.New("Invalid PEM data in public key")
+	}
 
 	pubkey, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {

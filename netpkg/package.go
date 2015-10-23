@@ -3,11 +3,26 @@ package netpkg
 import (
 	"encoding/json"
 	"time"
+	"encoding/base64"
+	"crypto/rsa"
 )
 
 const (
 	IdentityType = "kdeconnect.identity"
 	PairType = "kdeconnect.pair"
+	EncryptedType = "kdeconnect.encrypted"
+	PingType = "kdeconnect.ping"
+	TelephonyType = "kdeconnect.telephony"
+	BatteryType = "kdeconnect.battery"
+	SftpType = "kdeconnect.sftp"
+	NotificationType = "kdeconnect.notification"
+	ClipboardType = "kdeconnect.clipboard"
+	MprisType = "kdeconnect.mpris"
+	MousepadType = "kdeconnect.mousepad"
+	ShareType = "kdeconnect.share"
+	Capabilities = "kdeconnect.capabilities"
+	FindMyPhoneType = "kdeconnect.findmyphone"
+	RunCommandType = "kdeconnect.runcommand"
 )
 
 type Package struct {
@@ -26,7 +41,28 @@ func (p *Package) Serialize() []byte {
 	return output
 }
 
+func (p *Package) Encrypt(pub *rsa.PublicKey) (output []byte, err error) {
+	raw := p.Serialize()
+
+	encrypted, err := rsa.EncryptPKCS1v15(nil, pub, raw)
+	if err != nil {
+		return
+	}
+
+	output = (&Package{
+		Type: EncryptedType,
+		Body: &Encrypted{
+			Data: []string{base64.StdEncoding.EncodeToString(encrypted)},
+		},
+	}).Serialize()
+	return
+}
+
 func Unserialize(input []byte) (pkg *Package, err error) {
+	if len(input) == 0 {
+		return
+	}
+
 	err = json.Unmarshal(input, &pkg)
 	if err != nil {
 		return
@@ -37,9 +73,13 @@ func Unserialize(input []byte) (pkg *Package, err error) {
 		pkg.Body = new(Identity)
 	case PairType:
 		pkg.Body = new(Pair)
+	case EncryptedType:
+		pkg.Body = new(Encrypted)
 	}
 
-	err = json.Unmarshal(pkg.RawBody, pkg.Body)
+	if pkg.Body != nil {
+		err = json.Unmarshal(pkg.RawBody, pkg.Body)
+	}
 	return
 }
 
@@ -54,4 +94,23 @@ type Identity struct {
 type Pair struct {
 	PublicKey string `json:"publicKey"`
 	Pair bool `json:"pair"`
+}
+
+type Encrypted struct {
+	Data []string `json:"data"`
+}
+
+func (b *Encrypted) Decrypt(priv *rsa.PrivateKey) (pkg *Package, err error) {
+	data, err := base64.StdEncoding.DecodeString(b.Data[0])
+	if err != nil {
+		return
+	}
+
+	raw, err := rsa.DecryptPKCS1v15(nil, priv, data)
+	if err != nil {
+		return
+	}
+
+	pkg, err = Unserialize(raw)
+	return
 }
