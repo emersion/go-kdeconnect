@@ -13,6 +13,10 @@ type Plugin interface {
 	Handle(*network.Device, *netpkg.Package) bool
 }
 
+type Event struct {
+	Device *network.Device
+}
+
 type Handler struct {
 	plugins []Plugin
 	registeredPackages map[netpkg.Type]interface{}

@@ -1,14 +1,19 @@
 package plugin
 
 import (
-	"log"
 	"github.com/emersion/go-kdeconnect/netpkg"
 	"github.com/emersion/go-kdeconnect/network"
 )
 
 const PingType netpkg.Type = "kdeconnect.ping"
 
-type Ping struct {}
+type PingEvent struct {
+	Event
+}
+
+type Ping struct {
+	Incoming chan *PingEvent
+}
 
 func (p *Ping) GetDisplayName() string {
 	return "Ping"
@@ -23,11 +28,23 @@ func (p *Ping) Handle(device *network.Device, pkg *netpkg.Package) bool {
 		return false
 	}
 
-	log.Println("Received a ping!")
+	event := &PingEvent{}
+	event.Device = device
+
+	select {
+	case p.Incoming <- event:
+	default:
+	}
 
 	return true
 }
 
 func (p *Ping) SendPing(device *network.Device) error {
 	return device.Send(PingType, nil)
+}
+
+func NewPing() *Ping {
+	return &Ping{
+		Incoming: make(chan *PingEvent),
+	}
 }

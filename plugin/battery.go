@@ -1,12 +1,16 @@
 package plugin
 
 import (
-	"log"
 	"github.com/emersion/go-kdeconnect/netpkg"
 	"github.com/emersion/go-kdeconnect/network"
 )
 
 const BatteryType netpkg.Type = "kdeconnect.battery"
+
+const (
+	BatteryThresholdEventNone = 0
+	BatteryThresholdEventLow = 1
+)
 
 type BatteryBody struct {
 	CurrentCharge int `json:"currentCharge,omitempty"`
@@ -15,7 +19,14 @@ type BatteryBody struct {
 	Request bool `json:"request,omitempty"`
 }
 
-type Battery struct {}
+type BatteryEvent struct {
+	Event
+	BatteryBody
+}
+
+type Battery struct {
+	Incoming chan *BatteryEvent
+}
 
 func (p *Battery) GetDisplayName() string {
 	return "Battery"
@@ -32,11 +43,23 @@ func (p *Battery) Handle(device *network.Device, pkg *netpkg.Package) bool {
 		return false
 	}
 
-	log.Println("Battery:", pkg.Body)
+	event := &BatteryEvent{BatteryBody: *pkg.Body.(*BatteryBody)}
+	event.Device = device
+
+	select {
+	case p.Incoming <- event:
+	default:
+	}
 
 	return true
 }
 
 func (p *Battery) SendRequest(device *network.Device) error {
 	return device.Send(BatteryType, &BatteryBody{Request: true})
+}
+
+func NewBattery() *Battery {
+	return &Battery{
+		Incoming: make(chan *BatteryEvent),
+	}
 }
