@@ -3,6 +3,7 @@ package plugin
 import (
 	"log"
 	"github.com/emersion/go-kdeconnect/netpkg"
+	"github.com/emersion/go-kdeconnect/network"
 )
 
 const BatteryType netpkg.Type = "kdeconnect.battery"
@@ -26,7 +27,7 @@ func (p *Battery) GetSupportedPackages() map[netpkg.Type]interface{} {
 	}
 }
 
-func (p *Battery) Handle(pkg *netpkg.Package) bool {
+func (p *Battery) Handle(device *network.Device, pkg *netpkg.Package) bool {
 	if pkg.Type != BatteryType {
 		return false
 	}

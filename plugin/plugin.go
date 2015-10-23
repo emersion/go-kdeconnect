@@ -4,12 +4,13 @@ import (
 	"errors"
 	"encoding/json"
 	"github.com/emersion/go-kdeconnect/netpkg"
+	"github.com/emersion/go-kdeconnect/network"
 )
 
 type Plugin interface {
 	GetDisplayName() string
 	GetSupportedPackages() map[netpkg.Type]interface{}
-	Handle(*netpkg.Package) bool
+	Handle(*network.Device, *netpkg.Package) bool
 }
 
 type Handler struct {
@@ -26,7 +27,7 @@ func (h *Handler) Register(plugin Plugin) {
 	h.plugins = append(h.plugins, plugin)
 }
 
-func (h *Handler) Handle(pkg *netpkg.Package) error {
+func (h *Handler) Handle(device *network.Device, pkg *netpkg.Package) error {
 	for t, b := range h.registeredPackages {
 		if pkg.Type == t {
 			pkg.Body = *&b
@@ -42,7 +43,7 @@ func (h *Handler) Handle(pkg *netpkg.Package) error {
 	}
 
 	for _, plugin := range h.plugins {
-		if plugin.Handle(pkg) {
+		if plugin.Handle(device, pkg) {
 			return nil
 		}
 	}

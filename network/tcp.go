@@ -1,17 +1,14 @@
 package network
 
 import (
-	"bufio"
 	"net"
 	"log"
-	"github.com/emersion/go-kdeconnect/netpkg"
 )
 
 // Client holds info about connection
 type TcpClient struct {
 	Conn net.Conn
 	Server *TcpServer
-	Incoming chan *netpkg.Package // Channel for incoming data from client
 	id int
 }
 
@@ -23,44 +20,14 @@ type TcpServer struct {
 	Joins chan *TcpClient
 }
 
-// Read client data from channel
-func (c *TcpClient) Listen() {
-	defer c.Close()
-
-	scanner := bufio.NewScanner(c.Conn)
-	for scanner.Scan() {
-		pkg, err := netpkg.Unserialize(scanner.Bytes())
-		if err != nil {
-			log.Fatal("Cannot parse package:", err)
-		}
-
-		c.Incoming <- pkg
-	}
-}
-
-func (c *TcpClient) Close() error {
-	err := c.Conn.Close()
-	if err != nil {
-		return err
-	}
-
-	if c.Server != nil {
-		c.Server.clients[c.id] = nil
-	}
-
-	return nil
-}
-
 // Creates new Client instance and starts listening
 func (s *TcpServer) newClient(conn net.Conn) {
 	client := &TcpClient{
 		Conn: conn,
 		Server: s,
 		id: len(s.clients),
-		Incoming: make(chan *netpkg.Package),
 	}
 	s.clients = append(s.clients, client)
-	go client.Listen()
 	s.Joins <- client
 }
 
@@ -99,12 +66,5 @@ func NewTcpServer(address string) *TcpServer {
 		address: address,
 		joins: make(chan net.Conn),
 		Joins: make(chan *TcpClient),
-	}
-}
-
-func NewTcpClient(conn net.Conn) *TcpClient {
-	return &TcpClient{
-		Conn: conn,
-		Incoming: make(chan *netpkg.Package),
 	}
 }

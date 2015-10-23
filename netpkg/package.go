@@ -13,9 +13,9 @@ const (
 	IdentityType Type = "kdeconnect.identity"
 	PairType = "kdeconnect.pair"
 	EncryptedType = "kdeconnect.encrypted"
-	PingType = "kdeconnect.ping"
 
 	// TODO: move all of these to plugins
+	PingType = "kdeconnect.ping"
 	TelephonyType = "kdeconnect.telephony"
 	BatteryType = "kdeconnect.battery"
 	SftpType = "kdeconnect.sftp"
@@ -45,7 +45,7 @@ func (p *Package) Serialize() []byte {
 	return output
 }
 
-func (p *Package) Encrypt(pub *rsa.PublicKey) (output []byte, err error) {
+func (p *Package) Encrypt(pub *rsa.PublicKey) (output *Package, err error) {
 	raw := p.Serialize()
 
 	encrypted, err := rsa.EncryptPKCS1v15(nil, pub, raw)
@@ -53,12 +53,12 @@ func (p *Package) Encrypt(pub *rsa.PublicKey) (output []byte, err error) {
 		return
 	}
 
-	output = (&Package{
+	output = &Package{
 		Type: EncryptedType,
 		Body: &Encrypted{
 			Data: []string{base64.StdEncoding.EncodeToString(encrypted)},
 		},
-	}).Serialize()
+	}
 	return
 }
 
@@ -90,8 +90,8 @@ func Unserialize(input []byte) (pkg *Package, err error) {
 type Identity struct {
 	DeviceId string `json:"deviceId"`
 	DeviceName string `json:"deviceName"`
-	ProtocolVersion int `json:"protocolVersion"`
 	DeviceType string `json:"deviceType"`
+	ProtocolVersion int `json:"protocolVersion"`
 	TcpPort int `json:"tcpPort,omitempty"`
 }
 

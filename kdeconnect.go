@@ -6,8 +6,13 @@ import (
 )
 
 func main() {
+	battery := &plugin.Battery{}
+	ping := &plugin.Ping{}
+
 	p := plugin.NewHandler()
-	p.Register(&plugin.Battery{})
+	p.Register(battery)
+	p.Register(ping)
+
 	e := engine.New(p)
 	e.Listen()
 }

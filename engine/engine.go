@@ -22,22 +22,17 @@ type Engine struct {
 	handler *plugin.Handler
 }
 
-func (e *Engine) sendIdentity(conn net.Conn) error {
-	packet := &netpkg.Package{
-		Type: netpkg.IdentityType,
-		Body: &netpkg.Identity{
-			DeviceId: "go",
-			DeviceName: "go",
-			ProtocolVersion: protocolVersion,
-			DeviceType: "desktop",
-			TcpPort: tcpPort,
-		},
-	}
-	_, err := conn.Write(packet.Serialize())
-	return err
+func (e *Engine) sendIdentity(device *network.Device) error {
+	return device.Send(netpkg.IdentityType, &netpkg.Identity{
+		DeviceId: "go",
+		DeviceName: "go",
+		ProtocolVersion: protocolVersion,
+		DeviceType: "desktop",
+		TcpPort: tcpPort,
+	})
 }
 
-func (e *Engine) connect(addr *net.TCPAddr) (*network.TcpClient, error) {
+func (e *Engine) connect(addr *net.TCPAddr) (*network.Device, error) {
 	conn, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
 		return nil, err
@@ -45,21 +40,20 @@ func (e *Engine) connect(addr *net.TCPAddr) (*network.TcpClient, error) {
 
 	log.Println("New outgoing TCP connection")
 
-	return network.NewTcpClient(conn), nil
+	return network.NewDevice(conn), nil
 }
 
-func (e *Engine) handleConnection(client *network.TcpClient) {
-	go client.Listen()
-	go e.sendIdentity(client.Conn)
+func (e *Engine) handleDevice(device *network.Device) {
+	go device.Listen()
+	go e.sendIdentity(device)
 
 	for {
-		pkg := <-client.Incoming
+		pkg := <-device.Incoming
 		if pkg == nil {
 			continue
 		}
 
 		if pkg.Type == netpkg.EncryptedType {
-			// Decrypt package first
 			var err error
 			pkg, err = pkg.Body.(*netpkg.Encrypted).Decrypt(e.privateKey)
 			if err != nil {
@@ -68,28 +62,30 @@ func (e *Engine) handleConnection(client *network.TcpClient) {
 			}
 		}
 
-		switch pkg.Type {
-		case netpkg.PairType:
+		if pkg.Type == netpkg.PairType {
 			pair := pkg.Body.(*netpkg.Pair)
-			pubkey, err := crypto.UnmarshalPublicKey([]byte(pair.PublicKey))
+			rpub, err := crypto.UnmarshalPublicKey([]byte(pair.PublicKey))
 			if err != nil {
 				log.Println("Cannot parse public key:", err)
 				break
 			}
-			log.Println("Received public key:", pubkey)
+			log.Println("Received public key")
 
-			privkeyBin, _ := crypto.MarshalPublicKey(&e.privateKey.PublicKey)
-			packet := &netpkg.Package{
-				Type: netpkg.PairType,
-				Body: &netpkg.Pair{
-					PublicKey: string(privkeyBin),
-					Pair: true,
-				},
-			}
-			client.Conn.Write(packet.Serialize())
-		// TODO: ping
-		default:
-			err := e.handler.Handle(pkg)
+			lpub, _ := crypto.MarshalPublicKey(&e.privateKey.PublicKey)
+			device.Send(netpkg.PairType, &netpkg.Pair{
+				PublicKey: string(lpub),
+				Pair: true,
+			})
+
+			device.PublicKey = rpub
+		} else if pkg.Type == netpkg.IdentityType {
+			identity := pkg.Body.(*netpkg.Identity)
+			device.Id = identity.DeviceId
+			device.Name = identity.DeviceName
+			device.Type = identity.DeviceType
+			device.ProtocolVersion = identity.ProtocolVersion
+		} else {
+			err := e.handler.Handle(device, pkg)
 			if err != nil {
 				log.Println("Error handling package:", err, pkg.Type, string(pkg.RawBody))
 			}
@@ -105,7 +101,8 @@ func (e *Engine) broadcastIdentity() error {
 		return err
 	}
 
-	return e.sendIdentity(conn)
+	device := network.NewDevice(conn)
+	return e.sendIdentity(device)
 }
 
 func (e *Engine) Listen() {
@@ -129,7 +126,7 @@ func (e *Engine) Listen() {
 				identity := pkg.Body.(*netpkg.Identity)
 				log.Println("New device discovered by UDP:", identity)
 
-				client, err := e.connect(&net.TCPAddr{
+				device, err := e.connect(&net.TCPAddr{
 					IP: raddr.IP,
 					Port: identity.TcpPort,
 					Zone: raddr.Zone,
@@ -139,13 +136,14 @@ func (e *Engine) Listen() {
 					continue
 				}
 
-				go e.handleConnection(client)
+				go e.handleDevice(device)
 			} else {
 				log.Println(pkg)
 			}
 		case client := <- e.tcpServer.Joins:
 			log.Println("New incoming TCP connection")
-			go e.handleConnection(client)
+			device := network.NewDevice(client.Conn)
+			go e.handleDevice(device)
 		}
 	}
 }
