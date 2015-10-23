@@ -36,3 +36,7 @@ func (p *Battery) Handle(device *network.Device, pkg *netpkg.Package) bool {
 
 	return true
 }
+
+func (p *Battery) SendRequest(device *network.Device) error {
+	return device.Send(BatteryType, &BatteryBody{Request: true})
+}

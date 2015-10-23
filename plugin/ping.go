@@ -28,6 +28,6 @@ func (p *Ping) Handle(device *network.Device, pkg *netpkg.Package) bool {
 	return true
 }
 
-func (p *Ping) SendPing(device *network.Device) {
-	device.Send(PingType, nil)
+func (p *Ping) SendPing(device *network.Device) error {
+	return device.Send(PingType, nil)
 }
