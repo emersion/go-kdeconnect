@@ -42,6 +42,7 @@ func setDeviceIdentity(device *network.Device, identity *netpkg.Identity) {
 
 type Engine struct {
 	config *Config
+	devices map[string]*network.Device
 	handler *plugin.Handler
 	udpServer *network.UdpServer
 	tcpServer *network.TcpServer
@@ -69,6 +70,8 @@ func (e *Engine) connect(addr *net.TCPAddr) (*network.Device, error) {
 }
 
 func (e *Engine) handleDevice(device *network.Device) {
+	e.devices[device.Id] = device
+
 	go device.Listen()
 	go e.sendIdentity(device)
 
@@ -143,6 +146,10 @@ func (e *Engine) Listen() {
 					// Do not try to connect with ourselves
 					continue
 				}
+				if _, ok := e.devices[identity.DeviceId]; ok {
+					// Device already known
+					continue
+				}
 
 				log.Println("New device discovered by UDP:", identity)
 
@@ -183,6 +190,7 @@ func New(handler *plugin.Handler, config *Config) *Engine {
 	return &Engine{
 		config: config,
 		handler: handler,
+		devices: map[string]*network.Device{},
 		udpServer: network.NewUdpServer(":"+strconv.Itoa(config.UdpPort)),
 		tcpServer: network.NewTcpServer(":"+strconv.Itoa(config.TcpPort)),
 	}
