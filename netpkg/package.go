@@ -16,20 +16,6 @@ const (
 	IdentityType Type = "kdeconnect.identity"
 	PairType = "kdeconnect.pair"
 	EncryptedType = "kdeconnect.encrypted"
-
-	// TODO: move all of these to plugins
-	PingType = "kdeconnect.ping"
-	TelephonyType = "kdeconnect.telephony"
-	BatteryType = "kdeconnect.battery"
-	SftpType = "kdeconnect.sftp"
-	NotificationType = "kdeconnect.notification"
-	ClipboardType = "kdeconnect.clipboard"
-	MprisType = "kdeconnect.mpris"
-	MousepadType = "kdeconnect.mousepad"
-	ShareType = "kdeconnect.share"
-	Capabilities = "kdeconnect.capabilities"
-	FindMyPhoneType = "kdeconnect.findmyphone"
-	RunCommandType = "kdeconnect.runcommand"
 )
 
 type Package struct {
