@@ -3,7 +3,7 @@ package network
 import (
 	"net"
 	"log"
-	"github.com/emersion/go-kdeconnect/netpkg"
+	"github.com/emersion/go-kdeconnect/protocol"
 	"bytes"
 )
 
@@ -14,7 +14,7 @@ type UdpServer struct {
 
 type UdpPackage struct {
 	RemoteAddress *net.UDPAddr
-	Package *netpkg.Package
+	Package *protocol.Package
 }
 
 func (s *UdpServer) Listen() {
@@ -39,7 +39,7 @@ func (s *UdpServer) Listen() {
 		}
 
 		pkgBin := bytes.Trim(buffer[0:n], "\n")
-		pkg, err := netpkg.Unserialize(pkgBin)
+		pkg, err := protocol.Unserialize(pkgBin)
 		if err != nil {
 			log.Fatal("Cannot parse package:", err)
 		}

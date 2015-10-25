@@ -3,14 +3,14 @@ package plugin
 import (
 	"errors"
 	"encoding/json"
-	"github.com/emersion/go-kdeconnect/netpkg"
+	"github.com/emersion/go-kdeconnect/protocol"
 	"github.com/emersion/go-kdeconnect/network"
 )
 
 type Plugin interface {
 	GetDisplayName() string
-	GetSupportedPackages() map[netpkg.Type]interface{}
-	Handle(*network.Device, *netpkg.Package) bool
+	GetSupportedPackages() map[protocol.PackageType]interface{}
+	Handle(*network.Device, *protocol.Package) bool
 }
 
 type Event struct {
@@ -19,7 +19,7 @@ type Event struct {
 
 type Handler struct {
 	plugins []Plugin
-	registeredPackages map[netpkg.Type]interface{}
+	registeredPackages map[protocol.PackageType]interface{}
 }
 
 func (h *Handler) Register(plugin Plugin) {
@@ -31,7 +31,7 @@ func (h *Handler) Register(plugin Plugin) {
 	h.plugins = append(h.plugins, plugin)
 }
 
-func (h *Handler) Handle(device *network.Device, pkg *netpkg.Package) error {
+func (h *Handler) Handle(device *network.Device, pkg *protocol.Package) error {
 	for t, b := range h.registeredPackages {
 		if pkg.Type == t {
 			pkg.Body = *&b
@@ -57,6 +57,6 @@ func (h *Handler) Handle(device *network.Device, pkg *netpkg.Package) error {
 
 func NewHandler() *Handler {
 	return &Handler{
-		registeredPackages: map[netpkg.Type]interface{}{},
+		registeredPackages: map[protocol.PackageType]interface{}{},
 	}
 }

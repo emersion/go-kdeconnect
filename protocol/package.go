@@ -1,4 +1,4 @@
-package netpkg
+package protocol
 
 import (
 	"encoding/json"
@@ -8,19 +8,19 @@ import (
 	"github.com/emersion/go-kdeconnect/crypto"
 )
 
-const ProtocolVersion = 5
+const Version = 5
 
-type Type string
+type PackageType string
 
 const (
-	IdentityType Type = "kdeconnect.identity"
+	IdentityType PackageType = "kdeconnect.identity"
 	PairType = "kdeconnect.pair"
 	EncryptedType = "kdeconnect.encrypted"
 )
 
 type Package struct {
 	Id int64 `json:"id"`
-	Type Type `json:"type"`
+	Type PackageType `json:"type"`
 	RawBody json.RawMessage `json:"body"`
 	Body interface{} `json:"-"`
 }

@@ -1,11 +1,11 @@
 package plugin
 
 import (
-	"github.com/emersion/go-kdeconnect/netpkg"
+	"github.com/emersion/go-kdeconnect/protocol"
 	"github.com/emersion/go-kdeconnect/network"
 )
 
-const PingType netpkg.Type = "kdeconnect.ping"
+const PingType protocol.PackageType = "kdeconnect.ping"
 
 type PingEvent struct {
 	Event
@@ -19,11 +19,11 @@ func (p *Ping) GetDisplayName() string {
 	return "Ping"
 }
 
-func (p *Ping) GetSupportedPackages() map[netpkg.Type]interface{} {
-	return map[netpkg.Type]interface{}{}
+func (p *Ping) GetSupportedPackages() map[protocol.PackageType]interface{} {
+	return map[protocol.PackageType]interface{}{}
 }
 
-func (p *Ping) Handle(device *network.Device, pkg *netpkg.Package) bool {
+func (p *Ping) Handle(device *network.Device, pkg *protocol.Package) bool {
 	if pkg.Type != PingType {
 		return false
 	}

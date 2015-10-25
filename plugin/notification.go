@@ -1,11 +1,11 @@
 package plugin
 
 import (
-	"github.com/emersion/go-kdeconnect/netpkg"
+	"github.com/emersion/go-kdeconnect/protocol"
 	"github.com/emersion/go-kdeconnect/network"
 )
 
-const NotificationType netpkg.Type = "kdeconnect.notification"
+const NotificationType protocol.PackageType = "kdeconnect.notification"
 
 type NotificationBody struct {
 	Id string `json:"id,omitempty"`
@@ -37,13 +37,13 @@ func (p *Notification) GetDisplayName() string {
 	return "Notification"
 }
 
-func (p *Notification) GetSupportedPackages() map[netpkg.Type]interface{} {
-	return map[netpkg.Type]interface{}{
+func (p *Notification) GetSupportedPackages() map[protocol.PackageType]interface{} {
+	return map[protocol.PackageType]interface{}{
 		NotificationType: new(NotificationBody),
 	}
 }
 
-func (p *Notification) Handle(device *network.Device, pkg *netpkg.Package) bool {
+func (p *Notification) Handle(device *network.Device, pkg *protocol.Package) bool {
 	if pkg.Type != NotificationType {
 		return false
 	}

@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 	"github.com/emersion/go-kdeconnect/crypto"
-	"github.com/emersion/go-kdeconnect/netpkg"
+	"github.com/emersion/go-kdeconnect/protocol"
 	"github.com/emersion/go-kdeconnect/network"
 	"github.com/emersion/go-kdeconnect/plugin"
 )
@@ -32,7 +32,7 @@ func DefaultConfig() *Config {
 	}
 }
 
-func setDeviceIdentity(device *network.Device, identity *netpkg.Identity) {
+func setDeviceIdentity(device *network.Device, identity *protocol.Identity) {
 	device.Id = identity.DeviceId
 	device.Name = identity.DeviceName
 	device.Type = identity.DeviceType
@@ -51,10 +51,10 @@ type Engine struct {
 }
 
 func (e *Engine) sendIdentity(device *network.Device) error {
-	return device.Send(netpkg.IdentityType, &netpkg.Identity{
+	return device.Send(protocol.IdentityType, &protocol.Identity{
 		DeviceId: e.config.DeviceId,
 		DeviceName: e.config.DeviceName,
-		ProtocolVersion: netpkg.ProtocolVersion,
+		ProtocolVersion: protocol.Version,
 		DeviceType: e.config.DeviceType,
 		TcpPort: e.config.TcpPort,
 	})
@@ -87,17 +87,17 @@ func (e *Engine) handleDevice(device *network.Device) {
 			continue
 		}
 
-		if pkg.Type == netpkg.EncryptedType {
+		if pkg.Type == protocol.EncryptedType {
 			var err error
-			pkg, err = pkg.Body.(*netpkg.Encrypted).Decrypt(e.config.PrivateKey)
+			pkg, err = pkg.Body.(*protocol.Encrypted).Decrypt(e.config.PrivateKey)
 			if err != nil {
 				log.Println("Cannot decrypt package:", err)
 				continue
 			}
 		}
 
-		if pkg.Type == netpkg.PairType {
-			pair := pkg.Body.(*netpkg.Pair)
+		if pkg.Type == protocol.PairType {
+			pair := pkg.Body.(*protocol.Pair)
 			rpub, err := crypto.UnmarshalPublicKey([]byte(pair.PublicKey))
 			if err != nil {
 				log.Println("Cannot parse public key:", err)
@@ -106,7 +106,7 @@ func (e *Engine) handleDevice(device *network.Device) {
 			log.Println("Received public key")
 
 			lpub, _ := e.config.PrivateKey.PublicKey().Marshal()
-			device.Send(netpkg.PairType, &netpkg.Pair{
+			device.Send(protocol.PairType, &protocol.Pair{
 				PublicKey: string(lpub),
 				Pair: true,
 			})
@@ -117,8 +117,8 @@ func (e *Engine) handleDevice(device *network.Device) {
 			case e.Paired <- device:
 			default:
 			}
-		} else if pkg.Type == netpkg.IdentityType {
-			setDeviceIdentity(device, pkg.Body.(*netpkg.Identity))
+		} else if pkg.Type == protocol.IdentityType {
+			setDeviceIdentity(device, pkg.Body.(*protocol.Identity))
 		} else {
 			err := e.handler.Handle(device, pkg)
 			if err != nil {
@@ -158,8 +158,8 @@ func (e *Engine) Listen() {
 			raddr := udpPkg.RemoteAddress
 			pkg := udpPkg.Package
 
-			if pkg.Type == netpkg.IdentityType {
-				identity := pkg.Body.(*netpkg.Identity)
+			if pkg.Type == protocol.IdentityType {
+				identity := pkg.Body.(*protocol.Identity)
 				if identity.DeviceId == e.config.DeviceId {
 					// Do not try to connect with ourselves
 					continue

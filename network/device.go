@@ -5,7 +5,7 @@ import (
 	"net"
 	"bufio"
 	"github.com/emersion/go-kdeconnect/crypto"
-	"github.com/emersion/go-kdeconnect/netpkg"
+	"github.com/emersion/go-kdeconnect/protocol"
 )
 
 type Device struct {
@@ -15,16 +15,16 @@ type Device struct {
 	ProtocolVersion int
 	Type string
 	PublicKey *crypto.PublicKey
-	Incoming chan *netpkg.Package
+	Incoming chan *protocol.Package
 }
 
-func (d *Device) send(pkg *netpkg.Package) error {
+func (d *Device) send(pkg *protocol.Package) error {
 	_, err := d.conn.Write(pkg.Serialize())
 	return err
 }
 
-func (d *Device) Send(t netpkg.Type, b interface{}) error {
-	pkg := &netpkg.Package{
+func (d *Device) Send(t protocol.PackageType, b interface{}) error {
+	pkg := &protocol.Package{
 		Type: t,
 		Body: b,
 	}
@@ -48,7 +48,7 @@ func (d *Device) Listen() {
 
 	scanner := bufio.NewScanner(d.conn)
 	for scanner.Scan() {
-		pkg, err := netpkg.Unserialize(scanner.Bytes())
+		pkg, err := protocol.Unserialize(scanner.Bytes())
 		if err != nil {
 			log.Println("Cannot parse package:", err)
 			break
@@ -61,6 +61,6 @@ func (d *Device) Listen() {
 func NewDevice(conn net.Conn) *Device {
 	return &Device{
 		conn: conn,
-		Incoming: make(chan *netpkg.Package),
+		Incoming: make(chan *protocol.Package),
 	}
 }

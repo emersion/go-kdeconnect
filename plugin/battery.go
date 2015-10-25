@@ -1,11 +1,11 @@
 package plugin
 
 import (
-	"github.com/emersion/go-kdeconnect/netpkg"
+	"github.com/emersion/go-kdeconnect/protocol"
 	"github.com/emersion/go-kdeconnect/network"
 )
 
-const BatteryType netpkg.Type = "kdeconnect.battery"
+const BatteryType protocol.PackageType = "kdeconnect.battery"
 
 const (
 	BatteryThresholdEventNone = 0
@@ -33,13 +33,13 @@ func (p *Battery) GetDisplayName() string {
 	return "Battery"
 }
 
-func (p *Battery) GetSupportedPackages() map[netpkg.Type]interface{} {
-	return map[netpkg.Type]interface{}{
+func (p *Battery) GetSupportedPackages() map[protocol.PackageType]interface{} {
+	return map[protocol.PackageType]interface{}{
 		BatteryType: new(BatteryBody),
 	}
 }
 
-func (p *Battery) Handle(device *network.Device, pkg *netpkg.Package) bool {
+func (p *Battery) Handle(device *network.Device, pkg *protocol.Package) bool {
 	if pkg.Type != BatteryType {
 		return false
 	}
