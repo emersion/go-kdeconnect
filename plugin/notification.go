@@ -11,8 +11,9 @@ type NotificationBody struct {
 	Id string `json:"id,omitempty"`
 	AppName string `json:"appName,omitempty"`
 	IsClearable bool `json:"isClearable,omitempty"`
+	IsCancel bool `json:"isCancel,omitempty"`
 	Ticker string `json:"ticker,omitempty"`
-	Time int `json:"time,omitempty"`
+	Time string `json:"time,omitempty"`
 	Silent bool `json:"silent,omitempty"`
 
 	Request bool `json:"request,omitempty"`

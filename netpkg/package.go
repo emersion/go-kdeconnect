@@ -5,6 +5,7 @@ import (
 	"time"
 	"encoding/base64"
 	"crypto/rsa"
+	"bytes"
 )
 
 type Type string
@@ -105,16 +106,23 @@ type Encrypted struct {
 }
 
 func (b *Encrypted) Decrypt(priv *rsa.PrivateKey) (pkg *Package, err error) {
-	data, err := base64.StdEncoding.DecodeString(b.Data[0])
-	if err != nil {
-		return
+	buffer := new(bytes.Buffer)
+	var encrypted []byte
+	var raw []byte
+	for _, chunk := range b.Data {
+		encrypted, err = base64.StdEncoding.DecodeString(chunk)
+		if err != nil {
+			return
+		}
+
+		raw, err = rsa.DecryptPKCS1v15(nil, priv, encrypted)
+		if err != nil {
+			return
+		}
+
+		buffer.Write(raw)
 	}
 
-	raw, err := rsa.DecryptPKCS1v15(nil, priv, data)
-	if err != nil {
-		return
-	}
-
-	pkg, err = Unserialize(raw)
+	pkg, err = Unserialize(buffer.Bytes())
 	return
 }
