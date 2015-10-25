@@ -42,10 +42,13 @@ func setDeviceIdentity(device *network.Device, identity *netpkg.Identity) {
 
 type Engine struct {
 	config *Config
-	devices map[string]*network.Device
 	handler *plugin.Handler
 	udpServer *network.UdpServer
 	tcpServer *network.TcpServer
+	devices map[string]*network.Device
+	Joins chan *network.Device
+	Paired chan *network.Device
+	Leaves chan *network.Device
 }
 
 func (e *Engine) sendIdentity(device *network.Device) error {
@@ -72,11 +75,15 @@ func (e *Engine) connect(addr *net.TCPAddr) (*network.Device, error) {
 func (e *Engine) handleDevice(device *network.Device) {
 	e.devices[device.Id] = device
 
+	select {
+	case e.Joins <- device:
+	default:
+	}
+
 	go device.Listen()
 	go e.sendIdentity(device)
 
-	for {
-		pkg := <-device.Incoming
+	for pkg := range device.Incoming {
 		if pkg == nil {
 			continue
 		}
@@ -106,6 +113,11 @@ func (e *Engine) handleDevice(device *network.Device) {
 			})
 
 			device.PublicKey = rpub
+
+			select {
+			case e.Paired <- device:
+			default:
+			}
 		} else if pkg.Type == netpkg.IdentityType {
 			setDeviceIdentity(device, pkg.Body.(*netpkg.Identity))
 		} else {
@@ -117,6 +129,13 @@ func (e *Engine) handleDevice(device *network.Device) {
 	}
 
 	log.Println("Closed TCP connection")
+
+	delete(e.devices, device.Id)
+
+	select {
+	case e.Leaves <- device:
+	default:
+	}
 }
 
 func (e *Engine) broadcastIdentity() error {
@@ -190,8 +209,11 @@ func New(handler *plugin.Handler, config *Config) *Engine {
 	return &Engine{
 		config: config,
 		handler: handler,
-		devices: map[string]*network.Device{},
 		udpServer: network.NewUdpServer(":"+strconv.Itoa(config.UdpPort)),
 		tcpServer: network.NewTcpServer(":"+strconv.Itoa(config.TcpPort)),
+		devices: map[string]*network.Device{},
+		Joins: make(chan *network.Device),
+		Paired: make(chan *network.Device),
+		Leaves: make(chan *network.Device),
 	}
 }

@@ -41,7 +41,10 @@ func (d *Device) Send(t netpkg.Type, b interface{}) error {
 }
 
 func (d *Device) Listen() {
-	defer d.conn.Close()
+	defer (func() {
+		d.conn.Close()
+		close(d.Incoming)
+	})()
 
 	scanner := bufio.NewScanner(d.conn)
 	for scanner.Scan() {
