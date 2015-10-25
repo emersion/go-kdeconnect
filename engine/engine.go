@@ -98,20 +98,27 @@ func (e *Engine) handleDevice(device *network.Device) {
 
 		if pkg.Type == protocol.PairType {
 			pair := pkg.Body.(*protocol.Pair)
-			rpub, err := crypto.UnmarshalPublicKey([]byte(pair.PublicKey))
-			if err != nil {
-				log.Println("Cannot parse public key:", err)
-				break
+
+			if len(pair.PublicKey) > 0 {
+				rpub, err := crypto.UnmarshalPublicKey([]byte(pair.PublicKey))
+				if err != nil {
+					log.Println("Cannot parse public key:", err)
+					break
+				}
+				log.Println("Received public key")
+
+				lpub, _ := e.config.PrivateKey.PublicKey().Marshal()
+				device.Send(protocol.PairType, &protocol.Pair{
+					PublicKey: string(lpub),
+					Pair: true,
+				})
+
+				device.PublicKey = rpub
+			} else {
+				device.Send(protocol.PairType, &protocol.Pair{
+					Pair: true,
+				})
 			}
-			log.Println("Received public key")
-
-			lpub, _ := e.config.PrivateKey.PublicKey().Marshal()
-			device.Send(protocol.PairType, &protocol.Pair{
-				PublicKey: string(lpub),
-				Pair: true,
-			})
-
-			device.PublicKey = rpub
 
 			select {
 			case e.Paired <- device:
@@ -144,7 +151,13 @@ func (e *Engine) broadcastIdentity() error {
 	}
 
 	device := network.NewDevice(conn)
-	return e.sendIdentity(device)
+	err = e.sendIdentity(device)
+	if err != nil {
+		return err
+	}
+
+	conn.Close()
+	return nil
 }
 
 func (e *Engine) Listen() {
@@ -177,7 +190,7 @@ func (e *Engine) Listen() {
 					Zone: raddr.Zone,
 				})
 				if err != nil {
-					log.Println("Could open a TCP connection:", err)
+					log.Println("Could not open a TCP connection:", err)
 					continue
 				}
 
