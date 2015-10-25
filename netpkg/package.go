@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 	"encoding/base64"
-	"crypto/rsa"
 	"bytes"
+	"github.com/emersion/go-kdeconnect/crypto"
 )
 
 const ProtocolVersion = 5
@@ -48,10 +48,10 @@ func (p *Package) Serialize() []byte {
 	return output
 }
 
-func (p *Package) Encrypt(pub *rsa.PublicKey) (output *Package, err error) {
+func (p *Package) Encrypt(pub *crypto.PublicKey) (output *Package, err error) {
 	raw := p.Serialize()
 
-	encrypted, err := rsa.EncryptPKCS1v15(nil, pub, raw)
+	encrypted, err := pub.Encrypt(raw)
 	if err != nil {
 		return
 	}
@@ -107,7 +107,7 @@ type Encrypted struct {
 	Data []string `json:"data"`
 }
 
-func (b *Encrypted) Decrypt(priv *rsa.PrivateKey) (pkg *Package, err error) {
+func (b *Encrypted) Decrypt(priv *crypto.PrivateKey) (pkg *Package, err error) {
 	buffer := new(bytes.Buffer)
 	var encrypted []byte
 	var raw []byte
@@ -117,7 +117,7 @@ func (b *Encrypted) Decrypt(priv *rsa.PrivateKey) (pkg *Package, err error) {
 			return
 		}
 
-		raw, err = rsa.DecryptPKCS1v15(nil, priv, encrypted)
+		raw, err = priv.Decrypt(encrypted)
 		if err != nil {
 			return
 		}

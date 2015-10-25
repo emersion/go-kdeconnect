@@ -4,7 +4,7 @@ import (
 	"log"
 	"net"
 	"bufio"
-	"crypto/rsa"
+	"github.com/emersion/go-kdeconnect/crypto"
 	"github.com/emersion/go-kdeconnect/netpkg"
 )
 
@@ -14,7 +14,7 @@ type Device struct {
 	Name string
 	ProtocolVersion int
 	Type string
-	PublicKey *rsa.PublicKey
+	PublicKey *crypto.PublicKey
 	Incoming chan *netpkg.Package
 }
 

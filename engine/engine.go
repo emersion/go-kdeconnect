@@ -5,7 +5,6 @@ import (
 	"net"
 	"log"
 	"os"
-	"crypto/rsa"
 	"github.com/emersion/go-kdeconnect/crypto"
 	"github.com/emersion/go-kdeconnect/netpkg"
 	"github.com/emersion/go-kdeconnect/network"
@@ -18,7 +17,7 @@ type Config struct {
 	DeviceId string
 	DeviceName string
 	DeviceType string
-	PrivateKey *rsa.PrivateKey
+	PrivateKey *crypto.PrivateKey
 }
 
 func DefaultConfig() *Config {
@@ -106,7 +105,7 @@ func (e *Engine) handleDevice(device *network.Device) {
 			}
 			log.Println("Received public key")
 
-			lpub, _ := crypto.MarshalPublicKey(&e.config.PrivateKey.PublicKey)
+			lpub, _ := e.config.PrivateKey.PublicKey().Marshal()
 			device.Send(netpkg.PairType, &netpkg.Pair{
 				PublicKey: string(lpub),
 				Pair: true,
@@ -199,7 +198,7 @@ func (e *Engine) Listen() {
 func New(handler *plugin.Handler, config *Config) *Engine {
 	if config.PrivateKey == nil {
 		log.Println("No private key specified, generating a new one...")
-		privateKey, err := crypto.GenerateKey()
+		privateKey, err := crypto.GeneratePrivateKey()
 		if err != nil {
 			log.Fatal("Could not generate private key", err)
 		}
