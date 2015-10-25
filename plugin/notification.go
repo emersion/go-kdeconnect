@@ -37,9 +37,9 @@ func (p *Notification) GetDisplayName() string {
 	return "Notification"
 }
 
-func (p *Notification) GetSupportedPackages() map[protocol.PackageType]interface{} {
-	return map[protocol.PackageType]interface{}{
-		NotificationType: new(NotificationBody),
+func (p *Notification) GetSupportedPackages() map[protocol.PackageType]BodyFactory {
+	return map[protocol.PackageType]BodyFactory{
+		NotificationType: func() interface{} { return &NotificationBody{} },
 	}
 }
 

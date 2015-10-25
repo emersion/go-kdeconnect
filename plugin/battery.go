@@ -33,9 +33,9 @@ func (p *Battery) GetDisplayName() string {
 	return "Battery"
 }
 
-func (p *Battery) GetSupportedPackages() map[protocol.PackageType]interface{} {
-	return map[protocol.PackageType]interface{}{
-		BatteryType: new(BatteryBody),
+func (p *Battery) GetSupportedPackages() map[protocol.PackageType]BodyFactory {
+	return map[protocol.PackageType]BodyFactory{
+		BatteryType: func() interface{} { return &BatteryBody{} },
 	}
 }
 

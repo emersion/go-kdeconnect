@@ -19,8 +19,8 @@ func (p *Ping) GetDisplayName() string {
 	return "Ping"
 }
 
-func (p *Ping) GetSupportedPackages() map[protocol.PackageType]interface{} {
-	return map[protocol.PackageType]interface{}{}
+func (p *Ping) GetSupportedPackages() map[protocol.PackageType]BodyFactory {
+	return nil
 }
 
 func (p *Ping) Handle(device *network.Device, pkg *protocol.Package) bool {
