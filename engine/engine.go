@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"net"
 	"log"
+	"os"
 	"crypto/rsa"
 	"github.com/emersion/go-kdeconnect/crypto"
 	"github.com/emersion/go-kdeconnect/netpkg"
@@ -11,9 +12,26 @@ import (
 	"github.com/emersion/go-kdeconnect/plugin"
 )
 
-const udpPort = 1714
-const tcpPort = 1715
-const protocolVersion = 5
+type Config struct {
+	UdpPort int
+	TcpPort int
+	DeviceId string
+	DeviceName string
+	DeviceType string
+	PrivateKey *rsa.PrivateKey
+}
+
+func DefaultConfig() *Config {
+	hostname, _ := os.Hostname()
+
+	return &Config{
+		UdpPort: 1714,
+		TcpPort: 1715,
+		DeviceId: hostname,
+		DeviceName: hostname,
+		DeviceType: "desktop",
+	}
+}
 
 func setDeviceIdentity(device *network.Device, identity *netpkg.Identity) {
 	device.Id = identity.DeviceId
@@ -23,19 +41,19 @@ func setDeviceIdentity(device *network.Device, identity *netpkg.Identity) {
 }
 
 type Engine struct {
+	config *Config
+	handler *plugin.Handler
 	udpServer *network.UdpServer
 	tcpServer *network.TcpServer
-	privateKey *rsa.PrivateKey
-	handler *plugin.Handler
 }
 
 func (e *Engine) sendIdentity(device *network.Device) error {
 	return device.Send(netpkg.IdentityType, &netpkg.Identity{
-		DeviceId: "go",
-		DeviceName: "go",
-		ProtocolVersion: protocolVersion,
-		DeviceType: "desktop",
-		TcpPort: tcpPort,
+		DeviceId: e.config.DeviceId,
+		DeviceName: e.config.DeviceName,
+		ProtocolVersion: netpkg.ProtocolVersion,
+		DeviceType: e.config.DeviceType,
+		TcpPort: e.config.TcpPort,
 	})
 }
 
@@ -62,7 +80,7 @@ func (e *Engine) handleDevice(device *network.Device) {
 
 		if pkg.Type == netpkg.EncryptedType {
 			var err error
-			pkg, err = pkg.Body.(*netpkg.Encrypted).Decrypt(e.privateKey)
+			pkg, err = pkg.Body.(*netpkg.Encrypted).Decrypt(e.config.PrivateKey)
 			if err != nil {
 				log.Println("Cannot decrypt package:", err)
 				continue
@@ -78,7 +96,7 @@ func (e *Engine) handleDevice(device *network.Device) {
 			}
 			log.Println("Received public key")
 
-			lpub, _ := crypto.MarshalPublicKey(&e.privateKey.PublicKey)
+			lpub, _ := crypto.MarshalPublicKey(&e.config.PrivateKey.PublicKey)
 			device.Send(netpkg.PairType, &netpkg.Pair{
 				PublicKey: string(lpub),
 				Pair: true,
@@ -99,7 +117,7 @@ func (e *Engine) handleDevice(device *network.Device) {
 }
 
 func (e *Engine) broadcastIdentity() error {
-	conn, err := net.Dial("udp", "255.255.255.255:"+strconv.Itoa(udpPort))
+	conn, err := net.Dial("udp", "255.255.255.255:"+strconv.Itoa(e.config.UdpPort))
 	if err != nil {
 		return err
 	}
@@ -109,12 +127,6 @@ func (e *Engine) broadcastIdentity() error {
 }
 
 func (e *Engine) Listen() {
-	privateKey, err := crypto.GenerateKey()
-	if err != nil {
-		log.Fatal("Could not generate private key", err)
-	}
-	e.privateKey = privateKey
-
 	go e.udpServer.Listen()
 	go e.tcpServer.Listen()
 	go e.broadcastIdentity()
@@ -127,6 +139,11 @@ func (e *Engine) Listen() {
 
 			if pkg.Type == netpkg.IdentityType {
 				identity := pkg.Body.(*netpkg.Identity)
+				if identity.DeviceId == e.config.DeviceId {
+					// Do not try to connect with ourselves
+					continue
+				}
+
 				log.Println("New device discovered by UDP:", identity)
 
 				device, err := e.connect(&net.TCPAddr{
@@ -153,10 +170,20 @@ func (e *Engine) Listen() {
 	}
 }
 
-func New(handler *plugin.Handler) *Engine {
+func New(handler *plugin.Handler, config *Config) *Engine {
+	if config.PrivateKey == nil {
+		log.Println("No private key specified, generating a new one...")
+		privateKey, err := crypto.GenerateKey()
+		if err != nil {
+			log.Fatal("Could not generate private key", err)
+		}
+		config.PrivateKey = privateKey
+	}
+
 	return &Engine{
-		udpServer: network.NewUdpServer(":"+strconv.Itoa(udpPort)),
-		tcpServer: network.NewTcpServer(":"+strconv.Itoa(tcpPort)),
+		config: config,
 		handler: handler,
+		udpServer: network.NewUdpServer(":"+strconv.Itoa(config.UdpPort)),
+		tcpServer: network.NewTcpServer(":"+strconv.Itoa(config.TcpPort)),
 	}
 }

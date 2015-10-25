@@ -8,6 +8,8 @@ import (
 	"bytes"
 )
 
+const ProtocolVersion = 5
+
 type Type string
 
 const (

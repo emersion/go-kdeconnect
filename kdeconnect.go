@@ -7,6 +7,8 @@ import (
 )
 
 func main() {
+	config := engine.DefaultConfig()
+
 	battery := plugin.NewBattery()
 	ping := plugin.NewPing()
 
@@ -25,6 +27,6 @@ func main() {
 	hdlr.Register(battery)
 	hdlr.Register(ping)
 
-	e := engine.New(hdlr)
+	e := engine.New(hdlr, config)
 	e.Listen()
 }

@@ -12,8 +12,8 @@ func GenerateKey() (*rsa.PrivateKey, error) {
 	return rsa.GenerateKey(rand.Reader, 2048)
 }
 
-func MarshalPublicKey(pubkey *rsa.PublicKey) ([]byte, error) {
-	bin, err := x509.MarshalPKIXPublicKey(pubkey)
+func MarshalPublicKey(pub *rsa.PublicKey) ([]byte, error) {
+	bin, err := x509.MarshalPKIXPublicKey(pub)
 	if err != nil {
 		return nil, err
 	}
@@ -32,10 +32,35 @@ func UnmarshalPublicKey(data []byte) (*rsa.PublicKey, error) {
 		return nil, errors.New("Invalid PEM data in public key")
 	}
 
-	pubkey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		return nil, err
 	}
 
-	return pubkey.(*rsa.PublicKey), nil
+	return pub.(*rsa.PublicKey), nil
+}
+
+func MarshalPrivateKey(priv *rsa.PrivateKey) ([]byte, error) {
+	bin := x509.MarshalPKCS1PrivateKey(priv)
+
+	block := &pem.Block{
+		Type: "PRIVATE KEY",
+		Bytes: bin,
+	}
+
+	return pem.EncodeToMemory(block), nil
+}
+
+func UnmarshalPrivateKey(data []byte) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, errors.New("Invalid PEM data in public key")
+	}
+
+	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return priv, nil
 }
