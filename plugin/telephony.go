@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"log"
 	"github.com/emersion/go-kdeconnect/protocol"
 	"github.com/emersion/go-kdeconnect/network"
 )
@@ -27,7 +28,8 @@ type TelephonyBody struct {
 
 	MessageBody string `json:"messageBody,omitempty"`
 
-	IsCancel bool `json:"isCancel,omitempty"`
+	isCancel string `json:"isCancel,omitempty"` // It is a string but must be a bool
+	IsCancel bool `json:"-"`
 
 	Action TelephonyAction `json:"action,omitempty"`
 }
@@ -58,6 +60,11 @@ func (p *Telephony) Handle(device *network.Device, pkg *protocol.Package) bool {
 
 	event := &TelephonyEvent{TelephonyBody: *pkg.Body.(*TelephonyBody)}
 	event.Device = device
+
+	// Workaround because isCancel is sent as a string, not a bool
+	if event.isCancel != "" {
+		event.IsCancel = true
+	}
 
 	select {
 	case p.Incoming <- event:
