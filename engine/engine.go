@@ -11,6 +11,22 @@ import (
 	"github.com/emersion/go-kdeconnect/plugin"
 )
 
+type KnownDevice struct {
+	Id string
+	Name string
+	Type string
+	PublicKey *crypto.PublicKey
+}
+
+func NewKnownDeviceFromDevice(device *network.Device) *KnownDevice {
+	return &KnownDevice{
+		Id: device.Id,
+		Name: device.Name,
+		Type: device.Type,
+		PublicKey: device.PublicKey,
+	}
+}
+
 type Config struct {
 	UdpPort int
 	TcpPort int
@@ -18,6 +34,7 @@ type Config struct {
 	DeviceName string
 	DeviceType string
 	PrivateKey *crypto.PrivateKey
+	KnownDevices []*KnownDevice
 }
 
 func DefaultConfig() *Config {
@@ -83,25 +100,31 @@ func (e *Engine) PairDevice(device *network.Device) error {
 			Pair: true,
 		}
 
-		if device.PublicKey != nil {
-			// Remote sent its public key, send back ours
-			lpub, _ := e.config.PrivateKey.PublicKey().Marshal()
-			pair.PublicKey = string(lpub)
+		pub, err := e.config.PrivateKey.PublicKey().Marshal()
+		if err != nil {
+			return err
 		}
+		pair.PublicKey = string(pub)
 
-		err := device.Send(protocol.PairType, pair)
+		err = device.Send(protocol.PairType, pair)
 		if err != nil {
 			return err
 		}
 
+		log.Println("Sent pairing request to", device.Name)
+
 		device.PairRequestSent = true
-		if device.PairRequestReceived {
-			device.Paired = true
-		}
 	}
 
 	if device.PairRequestReceived && device.PairRequestSent {
 		device.Paired = true
+
+		log.Println("Device", device.Name, "paired")
+
+		if e.getKnownDevice(device) == -1 {
+			// Add it to the list of known devices
+			e.config.KnownDevices = append(e.config.KnownDevices, NewKnownDeviceFromDevice(device))
+		}
 
 		select {
 		case e.Paired <- device:
@@ -132,8 +155,22 @@ func (e *Engine) UnpairDevice(device *network.Device) error {
 	return nil
 }
 
+func (e *Engine) getKnownDevice(device *network.Device) int {
+	for i, knownDevice := range e.config.KnownDevices {
+		if knownDevice.Id == device.Id {
+			return i
+		}
+	}
+	return -1
+}
+
 func (e *Engine) handleDevice(device *network.Device) {
 	e.devices[device.Id] = device
+
+	if i := e.getKnownDevice(device); i != -1 {
+		device.Paired = true
+		device.PublicKey = e.config.KnownDevices[i].PublicKey
+	}
 
 	select {
 	case e.Joins <- device:
@@ -165,23 +202,31 @@ func (e *Engine) handleDevice(device *network.Device) {
 				// Remote asks pairing
 				device.PairRequestReceived = true
 
-				log.Println("Device requested pairing")
-
 				if len(pair.PublicKey) > 0 {
 					// Remote sent its public key
-					rpub, err := crypto.UnmarshalPublicKey([]byte(pair.PublicKey))
-					if err != nil {
+					pub := &crypto.PublicKey{}
+
+					if err := pub.Unmarshal([]byte(pair.PublicKey)); err != nil {
 						log.Println("Cannot parse public key:", err)
 						break
 					}
 					log.Println("Received public key")
 
-					device.PublicKey = rpub
+					device.PublicKey = pub
 				}
 
-				select {
-				case e.RequestsPairing <- device:
-				default:
+				if device.PairRequestSent {
+					// We asked for pairing first, remote accepted
+					log.Println("Device accepted pairing")
+
+					e.PairDevice(device)
+				} else {
+					log.Println("Device requested pairing")
+
+					select {
+					case e.RequestsPairing <- device:
+					default:
+					}
 				}
 			} else {
 				log.Println("Device requested unpairing")
@@ -276,11 +321,11 @@ func (e *Engine) Listen() {
 func New(handler *plugin.Handler, config *Config) *Engine {
 	if config.PrivateKey == nil {
 		log.Println("No private key specified, generating a new one...")
-		privateKey, err := crypto.GeneratePrivateKey()
-		if err != nil {
+		priv := &crypto.PrivateKey{}
+		if err := priv.Generate(); err != nil {
 			log.Fatal("Could not generate private key", err)
 		}
-		config.PrivateKey = privateKey
+		config.PrivateKey = priv
 	}
 
 	return &Engine{

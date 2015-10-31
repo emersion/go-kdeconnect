@@ -37,15 +37,30 @@ func (p *Package) Serialize() []byte {
 func (p *Package) Encrypt(pub *crypto.PublicKey) (output *Package, err error) {
 	raw := p.Serialize()
 
-	encrypted, err := pub.Encrypt(raw)
-	if err != nil {
-		return
+	buffer := bytes.NewBuffer(raw)
+
+	chunkSize := 128
+	var chunks []string
+
+	for {
+		chunk := buffer.Next(chunkSize)
+		if len(chunk) == 0 {
+			break
+		}
+
+		var encrypted []byte
+		encrypted, err = pub.Encrypt(chunk)
+		if err != nil {
+			return
+		}
+
+		chunks = append(chunks, base64.StdEncoding.EncodeToString(encrypted))
 	}
 
 	output = &Package{
 		Type: EncryptedType,
 		Body: &Encrypted{
-			Data: []string{base64.StdEncoding.EncodeToString(encrypted)},
+			Data: chunks,
 		},
 	}
 	return
