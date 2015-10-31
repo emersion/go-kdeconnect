@@ -169,7 +169,7 @@ func (e *Engine) handleDevice(device *network.Device) {
 
 	if i := e.getKnownDevice(device); i != -1 {
 		device.Paired = true
-		device.PublicKey = e.config.KnownDevices[i].PublicKey
+		//device.PublicKey = e.config.KnownDevices[i].PublicKey
 	}
 
 	select {
