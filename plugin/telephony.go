@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"log"
 	"github.com/emersion/go-kdeconnect/protocol"
 	"github.com/emersion/go-kdeconnect/network"
 )
