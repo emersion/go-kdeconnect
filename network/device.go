@@ -61,6 +61,10 @@ func (d *Device) Listen() {
 	}
 }
 
+func (d *Device) Close() error {
+	return d.conn.Close()
+}
+
 func NewDevice(conn net.Conn) *Device {
 	return &Device{
 		conn: conn,
