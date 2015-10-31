@@ -15,6 +15,9 @@ type Device struct {
 	ProtocolVersion int
 	Type string
 	PublicKey *crypto.PublicKey
+	Paired bool
+	PairRequestReceived bool
+	PairRequestSent bool
 	Incoming chan *protocol.Package
 }
 

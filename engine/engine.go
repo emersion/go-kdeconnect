@@ -46,7 +46,9 @@ type Engine struct {
 	tcpServer *network.TcpServer
 	devices map[string]*network.Device
 	Joins chan *network.Device
+	RequestsPairing chan *network.Device
 	Paired chan *network.Device
+	Unpaired chan *network.Device
 	Leaves chan *network.Device
 }
 
@@ -71,6 +73,65 @@ func (e *Engine) connect(addr *net.TCPAddr) (*network.Device, error) {
 	return network.NewDevice(conn), nil
 }
 
+func (e *Engine) PairDevice(device *network.Device) error {
+	if device.Paired {
+		return nil
+	}
+
+	if !device.PairRequestSent {
+		pair := &protocol.Pair{
+			Pair: true,
+		}
+
+		if device.PublicKey != nil {
+			// Remote sent its public key, send back ours
+			lpub, _ := e.config.PrivateKey.PublicKey().Marshal()
+			pair.PublicKey = string(lpub)
+		}
+
+		err := device.Send(protocol.PairType, pair)
+		if err != nil {
+			return err
+		}
+
+		device.PairRequestSent = true
+		if device.PairRequestReceived {
+			device.Paired = true
+		}
+	}
+
+	if device.PairRequestReceived && device.PairRequestSent {
+		device.Paired = true
+
+		select {
+		case e.Paired <- device:
+		default:
+		}
+	}
+
+	return nil
+}
+
+func (e *Engine) UnpairDevice(device *network.Device) error {
+	if device.Paired {
+		err := device.Send(protocol.PairType, &protocol.Pair{
+			Pair: false,
+		})
+		if err != nil {
+			return err
+		}
+
+		device.Paired = false
+	}
+
+	select {
+	case e.Unpaired <- device:
+	default:
+	}
+
+	return nil
+}
+
 func (e *Engine) handleDevice(device *network.Device) {
 	e.devices[device.Id] = device
 
@@ -87,6 +148,7 @@ func (e *Engine) handleDevice(device *network.Device) {
 			continue
 		}
 
+		// Decrypt package if encrypted
 		if pkg.Type == protocol.EncryptedType {
 			var err error
 			pkg, err = pkg.Body.(*protocol.Encrypted).Decrypt(e.config.PrivateKey)
@@ -99,30 +161,33 @@ func (e *Engine) handleDevice(device *network.Device) {
 		if pkg.Type == protocol.PairType {
 			pair := pkg.Body.(*protocol.Pair)
 
-			if len(pair.PublicKey) > 0 {
-				rpub, err := crypto.UnmarshalPublicKey([]byte(pair.PublicKey))
-				if err != nil {
-					log.Println("Cannot parse public key:", err)
-					break
+			if pair.Pair {
+				// Remote asks pairing
+				device.PairRequestReceived = true
+
+				log.Println("Device requested pairing")
+
+				if len(pair.PublicKey) > 0 {
+					// Remote sent its public key
+					rpub, err := crypto.UnmarshalPublicKey([]byte(pair.PublicKey))
+					if err != nil {
+						log.Println("Cannot parse public key:", err)
+						break
+					}
+					log.Println("Received public key")
+
+					device.PublicKey = rpub
 				}
-				log.Println("Received public key")
 
-				lpub, _ := e.config.PrivateKey.PublicKey().Marshal()
-				device.Send(protocol.PairType, &protocol.Pair{
-					PublicKey: string(lpub),
-					Pair: true,
-				})
-
-				device.PublicKey = rpub
+				select {
+				case e.RequestsPairing <- device:
+				default:
+				}
 			} else {
-				device.Send(protocol.PairType, &protocol.Pair{
-					Pair: true,
-				})
-			}
+				log.Println("Device requested unpairing")
 
-			select {
-			case e.Paired <- device:
-			default:
+				device.Paired = false
+				e.UnpairDevice(device)
 			}
 		} else if pkg.Type == protocol.IdentityType {
 			setDeviceIdentity(device, pkg.Body.(*protocol.Identity))
@@ -198,7 +263,7 @@ func (e *Engine) Listen() {
 
 				go e.handleDevice(device)
 			} else {
-				log.Println(pkg)
+				log.Println("Received a non-identity package on UDP connection", pkg)
 			}
 		case client := <- e.tcpServer.Joins:
 			log.Println("New incoming TCP connection")
@@ -225,7 +290,9 @@ func New(handler *plugin.Handler, config *Config) *Engine {
 		tcpServer: network.NewTcpServer(":"+strconv.Itoa(config.TcpPort)),
 		devices: map[string]*network.Device{},
 		Joins: make(chan *network.Device),
+		RequestsPairing: make(chan *network.Device),
 		Paired: make(chan *network.Device),
+		Unpaired: make(chan *network.Device),
 		Leaves: make(chan *network.Device),
 	}
 }

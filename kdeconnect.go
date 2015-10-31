@@ -28,5 +28,15 @@ func main() {
 	hdlr.Register(ping)
 
 	e := engine.New(hdlr, config)
+
+	go (func() {
+		for {
+			select {
+			case device := <-e.RequestsPairing:
+				e.PairDevice(device)
+			}
+		}
+	})()
+
 	e.Listen()
 }

@@ -73,6 +73,34 @@ func (p *Mpris) SendAction(device *network.Device, action string) error {
 	return device.Send(MprisType, &MprisBody{Action: action})
 }
 
+// TODO: add player to requests
+
+func (p *Mpris) SendRequest(device *network.Device, playerList bool, volume bool, nowPlaying bool) error {
+	return device.Send(MprisType, &MprisBody{
+		RequestPlayerList: playerList,
+		RequestVolume: volume,
+		RequestNowPlaying: nowPlaying,
+	})
+}
+
+func (p *Mpris) SendSetVolume(device *network.Device, volume int) error {
+	return device.Send(MprisType, &MprisBody{
+		SetVolume: volume,
+	})
+}
+
+func (p *Mpris) SendSetPosition(device *network.Device, position float64) error {
+	return device.Send(MprisType, &MprisBody{
+		SetPosition: position,
+	})
+}
+
+func (p *Mpris) SendSeek(device *network.Device, seek float64) error {
+	return device.Send(MprisType, &MprisBody{
+		Seek: seek,
+	})
+}
+
 func NewMpris() *Mpris {
 	return &Mpris{
 		Incoming: make(chan *MprisEvent),

@@ -85,7 +85,7 @@ type Identity struct {
 }
 
 type Pair struct {
-	PublicKey string `json:"publicKey"`
+	PublicKey string `json:"publicKey,omitempty"`
 	Pair bool `json:"pair"`
 }
 
