@@ -1,24 +1,24 @@
 package network
 
 import (
-	"log"
-	"net"
 	"bufio"
 	"github.com/emersion/go-kdeconnect/crypto"
 	"github.com/emersion/go-kdeconnect/protocol"
+	"log"
+	"net"
 )
 
 type Device struct {
-	conn net.Conn
-	Id string
-	Name string
-	ProtocolVersion int
-	Type string
-	PublicKey *crypto.PublicKey
-	Paired bool
+	conn                net.Conn
+	Id                  string
+	Name                string
+	ProtocolVersion     int
+	Type                string
+	PublicKey           *crypto.PublicKey
+	Paired              bool
 	PairRequestReceived bool
-	PairRequestSent bool
-	Incoming chan *protocol.Package
+	PairRequestSent     bool
+	Incoming            chan *protocol.Package
 }
 
 func (d *Device) send(pkg *protocol.Package) error {
@@ -65,9 +65,13 @@ func (d *Device) Close() error {
 	return d.conn.Close()
 }
 
+func (d *Device) Addr() net.Addr {
+	return d.conn.RemoteAddr()
+}
+
 func NewDevice(conn net.Conn) *Device {
 	return &Device{
-		conn: conn,
+		conn:     conn,
 		Incoming: make(chan *protocol.Package),
 	}
 }
